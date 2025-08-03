@@ -1,0 +1,239 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Professional Digital Twin Design System */
+
+@layer base {
+  :root {
+    /* Light Theme - Lavender, Baby Pink & Sky Blue */
+    --background: 255 245% 98%;
+    --foreground: 215 25% 27%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 27%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 27%;
+
+    --primary: 262 69% 76%;       /* Lavender */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 262 69% 85%;
+
+    --secondary: 340 75% 92%;     /* Soft baby pink */
+    --secondary-foreground: 215 25% 35%;
+
+    --muted: 210 100% 96%;        /* Very light sky blue */
+    --muted-foreground: 215 16% 50%;
+
+    --accent: 200 100% 85%;       /* Sky blue */
+    --accent-foreground: 215 25% 27%;
+
+    --success: 142 69% 70%;
+    --warning: 48 95% 65%;
+    --danger: 0 84% 70%;
+
+    --destructive: 0 84% 70%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 40% 90%;
+    --input: 210 40% 90%;
+    --ring: 262 83% 78%;
+
+    --radius: 0.875rem;
+
+    /* Professional Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-success: linear-gradient(135deg, hsl(var(--success)), hsl(142 69% 80%));
+    --gradient-background: linear-gradient(135deg, hsl(var(--background)), hsl(210 40% 96%));
+
+    /* Shadows */
+    --shadow-soft: 0 2px 8px -2px hsl(var(--primary) / 0.1);
+    --shadow-medium: 0 8px 25px -8px hsl(var(--primary) / 0.15);
+    --shadow-strong: 0 25px 50px -12px hsl(var(--primary) / 0.25);
+
+    /* Smooth Animations */
+    --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark Theme - Deep Blue Elegance */
+    --background: 223 39% 7%;
+    --foreground: 213 27% 92%;
+
+    --card: 223 39% 9%;
+    --card-foreground: 213 27% 92%;
+
+    --popover: 223 39% 9%;
+    --popover-foreground: 213 27% 92%;
+
+    --primary: 221 83% 66%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 221 83% 76%;
+
+    --secondary: 223 39% 12%;
+    --secondary-foreground: 213 27% 85%;
+
+    --muted: 223 39% 12%;
+    --muted-foreground: 215 20% 60%;
+
+    --accent: 199 89% 68%;
+    --accent-foreground: 223 39% 7%;
+
+    --success: 142 69% 65%;
+    --warning: 48 95% 60%;
+    --danger: 0 84% 65%;
+
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 213 27% 92%;
+
+    --border: 223 39% 15%;
+    --input: 223 39% 15%;
+    --ring: 221 83% 66%;
+
+    /* Dark Blue Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-success: linear-gradient(135deg, hsl(var(--success)), hsl(142 69% 75%));
+    --gradient-background: linear-gradient(135deg, hsl(var(--background)), hsl(223 39% 10%));
+
+    /* Enhanced Dark Shadows */
+    --shadow-soft: 0 2px 8px -2px hsl(221 83% 66% / 0.15);
+    --shadow-medium: 0 8px 25px -8px hsl(221 83% 66% / 0.25);
+    --shadow-strong: 0 25px 50px -12px hsl(221 83% 66% / 0.35);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-gradient-to-br from-background to-background text-foreground font-sans antialiased;
+    background-image: var(--gradient-background);
+    min-height: 100vh;
+    transition: var(--transition-smooth);
+  }
+
+  /* Global smooth transitions */
+  * {
+    transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+
+  /* Custom Scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted/30;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+
+  /* Professional Typography */
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glass Effect */
+  .glass {
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    background-color: hsl(var(--card) / 0.8);
+    border: 1px solid hsl(var(--border) / 0.3);
+    border-radius: calc(var(--radius) * 1.5);
+    box-shadow: var(--shadow-medium);
+  }
+
+  /* Professional Animations */
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.4s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0; 
+      transform: translateY(20px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+
+  @keyframes scaleIn {
+    from { 
+      opacity: 0; 
+      transform: scale(0.95); 
+    }
+    to { 
+      opacity: 1; 
+      transform: scale(1); 
+    }
+  }
+
+  /* Professional Loading States */
+  .loading-shimmer {
+    background: linear-gradient(90deg, 
+      hsl(var(--muted)) 0%, 
+      hsl(var(--muted-foreground) / 0.1) 50%, 
+      hsl(var(--muted)) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+}
