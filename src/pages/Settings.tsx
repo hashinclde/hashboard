@@ -1,354 +1,528 @@
-
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Settings as SettingsIcon, 
-  Calendar as CalendarIcon, 
-  Users, 
-  Building2,
-  Save,
-  Plus,
-  X,
-  Moon,
-  Sun
-} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { CalendarIcon, Plus, X, ArrowLeft, Trash2, Save, Users, User, Palette } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 interface ProjectSettings {
   projectName: string;
   description: string;
-  dueDate: Date;
-  teamMembers: string[];
   budget: number;
-  priority: 'low' | 'medium' | 'high';
+  dueDate: Date;
+  priority: string;
 }
 
-export default function Settings() {
-  const [isDark, setIsDark] = useState(() => {
-    const saved = localStorage.getItem('theme_preference');
-    return saved === 'dark';
-  });
-  const [selectedDate, setSelectedDate] = useState<Date>(() => {
-    const saved = localStorage.getItem('project_settings');
-    if (saved) {
-      const settings = JSON.parse(saved);
-      return settings.dueDate ? new Date(settings.dueDate) : undefined;
-    }
-    return undefined;
-  });
-  const [newMember, setNewMember] = useState("");
-  const [teamMembers, setTeamMembers] = useState<string[]>(() => {
-    const saved = localStorage.getItem('project_settings');
-    if (saved) {
-      const settings = JSON.parse(saved);
-      return settings.teamMembers || [""];
-    }
-    return [""];
-  });
-  const [userEmail, setUserEmail] = useState(() => {
-    const saved = localStorage.getItem('user_email');
-    return saved || "";
-  });
+interface UserPreferences {
+  project_name?: string;
+  project_description?: string;
+  project_budget?: number;
+  project_due_date?: string;
+  project_priority?: string;
+  theme_preference?: string;
+  team_members?: any[];
+}
 
-  const { register, handleSubmit, setValue, watch } = useForm<ProjectSettings>({
+const Settings = () => {
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [preferences, setPreferences] = useState<UserPreferences>({});
+  const [isDark, setIsDark] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>();
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string; email: string; role: string }>>([]);
+  const [newMember, setNewMember] = useState({ name: '', email: '', role: 'Member' });
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { toast } = useToast();
+  
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch
+  } = useForm<ProjectSettings>({
     defaultValues: {
-      projectName: "Digital Twin Project",
-      description: "AI-powered project management system",
-      budget: 50000,
-      priority: 'high'
+      projectName: '',
+      description: '',
+      budget: 0,
+      priority: 'medium',
     }
   });
 
-  const onSubmit = (data: ProjectSettings) => {
-    const settingsData = {
-      ...data,
-      dueDate: selectedDate,
-      teamMembers: teamMembers.filter(member => member.trim() !== "")
-    };
-    console.log('Saving settings:', settingsData);
-    localStorage.setItem('project_settings', JSON.stringify(settingsData));
-    // Save user email separately
-    if (userEmail) {
-      localStorage.setItem('user_email', userEmail);
+  // Check authentication
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
     }
-    // Show success notification
-    const event = new CustomEvent('show-notification', {
-      detail: { type: 'success', message: 'Project settings saved successfully!' }
-    });
-    window.dispatchEvent(event);
+  }, [user, loading, navigate]);
+
+  // Load user preferences
+  useEffect(() => {
+    const loadPreferences = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error loading preferences:', error);
+        return;
+      }
+
+      if (data) {
+        setPreferences({
+          project_name: data.project_name,
+          project_description: data.project_description,
+          project_budget: data.project_budget,
+          project_due_date: data.project_due_date,
+          project_priority: data.project_priority,
+          theme_preference: data.theme_preference,
+          team_members: Array.isArray(data.team_members) ? data.team_members : []
+        });
+        setValue('projectName', data.project_name || '');
+        setValue('description', data.project_description || '');
+        setValue('budget', data.project_budget || 0);
+        setValue('priority', data.project_priority || 'medium');
+        setIsDark(data.theme_preference === 'dark');
+        setTeamMembers(Array.isArray(data.team_members) ? data.team_members as Array<{ id: string; name: string; email: string; role: string }> : []);
+        
+        if (data.project_due_date) {
+          setSelectedDate(new Date(data.project_due_date));
+        }
+      }
+    };
+
+    loadPreferences();
+  }, [user, setValue]);
+
+  const onSubmit = async (data: ProjectSettings) => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    
+    const updatedPreferences = {
+      user_id: user.id,
+      project_name: data.projectName,
+      project_description: data.description,
+      project_budget: data.budget,
+      project_priority: data.priority,
+      project_due_date: selectedDate?.toISOString().split('T')[0] || null,
+      theme_preference: isDark ? 'dark' : 'light',
+      team_members: teamMembers,
+    };
+
+    const { error } = await supabase
+      .from('user_preferences')
+      .upsert(updatedPreferences);
+
+    if (error) {
+      toast({
+        title: "Error saving settings",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setPreferences(updatedPreferences);
+      toast({
+        title: "Settings saved",
+        description: "Your project settings have been saved successfully.",
+      });
+    }
+    
+    setIsLoading(false);
   };
 
   const addTeamMember = () => {
-    if (newMember && !teamMembers.includes(newMember)) {
-      const updatedMembers = [...teamMembers.filter(m => m.trim() !== ""), newMember];
-      setTeamMembers(updatedMembers);
-      setNewMember("");
+    if (newMember.name && newMember.email) {
+      const member = {
+        id: Date.now().toString(),
+        ...newMember
+      };
+      setTeamMembers([...teamMembers, member]);
+      setNewMember({ name: '', email: '', role: 'Member' });
+      
+      toast({
+        title: "Team member added",
+        description: `${newMember.name} has been added to the team.`,
+      });
     }
   };
 
-  const saveTeamSettings = () => {
-    const validMembers = teamMembers.filter(member => member.trim() !== "");
-    const currentSettings = JSON.parse(localStorage.getItem('project_settings') || '{}');
-    const updatedSettings = { ...currentSettings, teamMembers: validMembers };
-    localStorage.setItem('project_settings', JSON.stringify(updatedSettings));
+  const saveThemePreference = async () => {
+    if (!user) return;
     
-    const event = new CustomEvent('show-notification', {
-      detail: { type: 'success', message: 'Team settings saved successfully!' }
-    });
-    window.dispatchEvent(event);
-  };
-
-  const saveThemePreference = () => {
-    localStorage.setItem('theme_preference', isDark ? 'dark' : 'light');
-    // Apply theme immediately
+    const theme = isDark ? 'dark' : 'light';
+    
+    // Apply theme to document
     if (isDark) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-    
-    const event = new CustomEvent('show-notification', {
-      detail: { type: 'success', message: `${isDark ? 'Dark' : 'Light'} theme applied successfully!` }
-    });
-    window.dispatchEvent(event);
+
+    const { error } = await supabase
+      .from('user_preferences')
+      .upsert({
+        user_id: user.id,
+        theme_preference: theme,
+      });
+
+    if (error) {
+      toast({
+        title: "Error saving theme",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Theme saved",
+        description: `Theme preference set to ${theme} mode.`,
+      });
+    }
   };
 
-  const removeTeamMember = (member: string) => {
-    setTeamMembers(teamMembers.filter(m => m !== member));
+  const removeTeamMember = (id: string) => {
+    setTeamMembers(teamMembers.filter(member => member.id !== id));
   };
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (!error) {
+      navigate("/auth");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="loading-shimmer w-64 h-8 rounded mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-background p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-background">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between"
+          transition={{ duration: 0.5 }}
         >
-          <div>
-            <h1 className="text-3xl font-bold text-gradient">Project Settings</h1>
-            <p className="text-muted-foreground">Configure your project details and preferences</p>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/")}
+                className="hover:bg-white/10"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <div>
+                <h1 className="text-3xl font-bold text-gradient">Settings</h1>
+                <p className="text-muted-foreground">Manage your project and account preferences</p>
+              </div>
+            </div>
+            <Button variant="outline" onClick={handleSignOut}>
+              Sign Out
+            </Button>
           </div>
-          <Button
-            onClick={() => window.history.back()}
-            variant="outline"
-          >
-            Back to Dashboard
-          </Button>
-        </motion.div>
 
-        {/* Settings Tabs */}
-        <Tabs defaultValue="project" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="project" className="flex items-center gap-2">
-              <Building2 className="w-4 h-4" />
-              Project
-            </TabsTrigger>
-            <TabsTrigger value="team" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Team
-            </TabsTrigger>
-            <TabsTrigger value="preferences" className="flex items-center gap-2">
-              <SettingsIcon className="w-4 h-4" />
-              Preferences
-            </TabsTrigger>
-          </TabsList>
+          {/* Settings Tabs */}
+          <Tabs defaultValue="project" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3 glassmorphism">
+              <TabsTrigger value="project" className="flex items-center space-x-2">
+                <Save className="w-4 h-4" />
+                <span>Project</span>
+              </TabsTrigger>
+              <TabsTrigger value="team" className="flex items-center space-x-2">
+                <Users className="w-4 h-4" />
+                <span>Team</span>
+              </TabsTrigger>
+              <TabsTrigger value="preferences" className="flex items-center space-x-2">
+                <Palette className="w-4 h-4" />
+                <span>Preferences</span>
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Project Settings */}
-          <TabsContent value="project">
-            <Card className="glass">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-primary" />
-                  Project Configuration
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Project Settings */}
+            <TabsContent value="project">
+              <Card className="glassmorphism border-white/10">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Save className="w-5 h-5" />
+                    <span>Project Settings</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Configure your project details and timeline
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="projectName">Project Name</Label>
+                        <Input
+                          id="projectName"
+                          {...register("projectName", { required: "Project name is required" })}
+                          className="bg-white/5 border-white/10"
+                        />
+                        {errors.projectName && (
+                          <p className="text-sm text-destructive">{errors.projectName.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="budget">Budget ($)</Label>
+                        <Input
+                          id="budget"
+                          type="number"
+                          {...register("budget", { required: "Budget is required", min: 0 })}
+                          className="bg-white/5 border-white/10"
+                        />
+                        {errors.budget && (
+                          <p className="text-sm text-destructive">{errors.budget.message}</p>
+                        )}
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="projectName">Project Name</Label>
-                      <Input
-                        id="projectName"
-                        {...register("projectName", { required: true })}
-                        placeholder="Enter project name"
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        {...register("description")}
+                        className="bg-white/5 border-white/10 min-h-[100px]"
+                        placeholder="Describe your project..."
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="budget">Budget ($)</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label>Due Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal bg-white/5 border-white/10",
+                                !selectedDate && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={selectedDate}
+                              onSelect={setSelectedDate}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="priority">Priority</Label>
+                        <Select {...register("priority")}>
+                          <SelectTrigger className="bg-white/5 border-white/10">
+                            <SelectValue placeholder="Select priority" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="urgent">Urgent</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      <Save className="w-4 h-4 mr-2" />
+                      {isLoading ? "Saving..." : "Save Project Settings"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Team Settings */}
+            <TabsContent value="team">
+              <Card className="glassmorphism border-white/10">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Users className="w-5 h-5" />
+                    <span>Team Management</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Add and manage team members for your project
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Add New Member */}
+                  <div className="space-y-4 p-4 rounded-lg bg-white/5 border border-white/10">
+                    <h3 className="font-semibold">Add Team Member</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <Input
-                        id="budget"
-                        type="number"
-                        {...register("budget", { required: true })}
-                        placeholder="50000"
+                        placeholder="Full Name"
+                        value={newMember.name}
+                        onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                        className="bg-white/5 border-white/10"
                       />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Project Description</Label>
-                    <Textarea
-                      id="description"
-                      {...register("description")}
-                      placeholder="Describe your project goals and objectives"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label>Due Date</Label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !selectedDate && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={setSelectedDate}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="priority">Priority Level</Label>
-                      <select
-                        {...register("priority")}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                      >
-                        <option value="low">Low Priority</option>
-                        <option value="medium">Medium Priority</option>
-                        <option value="high">High Priority</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <Button type="submit" className="w-full" variant="gradient">
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Project Settings
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Team Settings */}
-          <TabsContent value="team">
-            <Card className="glass">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-primary" />
-                  Team Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="userEmail">Your Email</Label>
-                  <Input
-                    id="userEmail"
-                    type="email"
-                    placeholder="Enter your email address"
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add team member email"
-                    value={newMember}
-                    onChange={(e) => setNewMember(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && addTeamMember()}
-                  />
-                  <Button onClick={addTeamMember} variant="outline">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Team Members</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {teamMembers.filter(member => member.trim() !== "").map((member, index) => (
-                      <Badge key={index} variant="secondary" className="flex items-center gap-2">
-                        {member}
-                        <button
-                          onClick={() => removeTeamMember(member)}
-                          className="text-destructive hover:text-destructive/80"
+                      <Input
+                        placeholder="Email Address"
+                        type="email"
+                        value={newMember.email}
+                        onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                        className="bg-white/5 border-white/10"
+                      />
+                      <div className="flex space-x-2">
+                        <Select
+                          value={newMember.role}
+                          onValueChange={(value) => setNewMember({ ...newMember, role: value })}
                         >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                          <SelectTrigger className="bg-white/5 border-white/10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Admin">Admin</SelectItem>
+                            <SelectItem value="Member">Member</SelectItem>
+                            <SelectItem value="Viewer">Viewer</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button onClick={addTeamMember} size="icon">
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <Button onClick={saveTeamSettings} className="w-full" variant="gradient">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Team Settings
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Preferences */}
-          <TabsContent value="preferences">
-            <Card className="glass">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <SettingsIcon className="w-5 h-5 text-primary" />
-                  Application Preferences
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Theme</Label>
-                    <p className="text-sm text-muted-foreground">Choose your preferred theme</p>
+                  {/* Team Members List */}
+                  <div className="space-y-3">
+                    <h3 className="font-semibold">Current Team Members</h3>
+                    {teamMembers.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-8">
+                        No team members added yet. Add your first team member above.
+                      </p>
+                    ) : (
+                      teamMembers.map((member) => (
+                        <div key={member.id} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center">
+                              <User className="w-5 h-5 text-primary-foreground" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{member.name}</p>
+                              <p className="text-sm text-muted-foreground">{member.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm px-2 py-1 rounded bg-primary/20 text-primary">
+                              {member.role}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeTeamMember(member.id)}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                  <Button
-                    onClick={() => setIsDark(!isDark)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                    {isDark ? 'Light' : 'Dark'}
+
+                  <Button onClick={handleSubmit(onSubmit)} className="w-full" disabled={isLoading}>
+                    <Save className="w-4 h-4 mr-2" />
+                    {isLoading ? "Saving..." : "Save Team Settings"}
                   </Button>
-                </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                <Button onClick={saveThemePreference} className="w-full" variant="gradient">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Preferences
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+            {/* Preferences */}
+            <TabsContent value="preferences">
+              <Card className="glassmorphism border-white/10">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Palette className="w-5 h-5" />
+                    <span>Application Preferences</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Customize your application experience
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
+                      <div className="space-y-1">
+                        <h3 className="font-medium">Dark Mode</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Switch between light and dark themes
+                        </p>
+                      </div>
+                      <Switch
+                        checked={isDark}
+                        onCheckedChange={setIsDark}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
+                      <div className="space-y-1">
+                        <h3 className="font-medium">User Account</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Signed in as: {user?.email}
+                        </p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={handleSignOut}>
+                        Sign Out
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Button onClick={saveThemePreference} className="w-full">
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Preferences
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </motion.div>
       </div>
     </div>
   );
-}
+};
+
+export default Settings;
