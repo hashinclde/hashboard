@@ -46,8 +46,8 @@ export function AuthModal({ isOpen, onClose, onSignIn }: AuthModalProps) {
                 transition={{ duration: 0.6 }}
               >
                 <div className="flex items-center gap-3 mb-8">
-                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center relative overflow-hidden backdrop-blur-sm">
-                    <span className="text-xl font-bold font-display">#</span>
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center relative overflow-hidden backdrop-blur-sm border border-white/30">
+                    <span className="text-xl font-black font-display tracking-tighter">#</span>
                     <div className="absolute inset-0 bg-white/10"></div>
                   </div>
                   <div>
